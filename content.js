@@ -1,15 +1,16 @@
 // ─────────────────────────────────────────────────────────────
-// AI Chat Moderator — Content Script (SIMPLE VERSION)
+// AI Chat Moderator — Content Script
 // ─────────────────────────────────────────────────────────────
 (() => {
   "use strict";
 
   const GRAMMAR = "BTech study group. Only study and academic discussions allowed.";
+  const API_URL = "http://localhost:8080/moderate";
 
   let processing = false;
   let approved = false;
 
-  // ── Show a small badge so we KNOW the extension loaded ─────
+  // ── Badge indicator ────────────────────────────────────────
   const badge = document.createElement("div");
   badge.textContent = "🛡️ AI Mod ON";
   badge.style.cssText =
@@ -22,15 +23,76 @@
 
   console.log("[AI MOD] ✅ Loaded on", location.href);
 
+  // ── Shared moderation call ─────────────────────────────────
+  // Tries background script first, falls back to direct fetch
+  async function callModeration(text) {
+    // Try 1: via background script
+    try {
+      const bgResult = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+          { type: "MODERATE_MESSAGE", payload: { message: text, grammar: GRAMMAR } },
+          (resp) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else if (!resp) {
+              reject(new Error("No response from background"));
+            } else {
+              resolve(resp);
+            }
+          }
+        );
+      });
+      return bgResult;
+    } catch (bgErr) {
+      console.warn("[AI MOD] Background failed, trying direct fetch:", bgErr.message);
+    }
+
+    // Try 2: direct API call
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, grammar: GRAMMAR }),
+      });
+      const data = await res.json();
+      return {
+        approved: data.code === "M200",
+        code: data.code || "M400",
+        ruleName: data.code || "Unknown",
+        reason: data.reason || "Unknown",
+      };
+    } catch (fetchErr) {
+      console.error("[AI MOD] Direct fetch also failed:", fetchErr.message);
+      return { approved: false, code: "ERR", reason: "Cannot reach moderation server. Is it running?" };
+    }
+  }
+
+  // ── Handle moderation result ───────────────────────────────
+  function handleResult(data, resendFn) {
+    processing = false;
+
+    if (data.approved) {
+      console.log("[AI MOD] ✅ Approved");
+      badge.textContent = "🛡️ ✅ Sent";
+      badge.style.background = "#22c55e";
+      approved = true;
+      resendFn();
+    } else {
+      console.log("[AI MOD] 🚫 Blocked:", data.code, data.reason);
+      showBlock(data.reason || "Message violates guidelines", data.code || "M400");
+    }
+
+    setTimeout(() => {
+      badge.textContent = "🛡️ AI Mod ON";
+      badge.style.background = "#6366f1";
+    }, 3000);
+  }
+
   // ── INTERCEPT ENTER ────────────────────────────────────────
   document.addEventListener("keydown", async (e) => {
-    if (e.key !== "Enter" || e.shiftKey || e.ctrlKey) return;
+    if (e.key !== "Enter" || e.shiftKey) return;
 
-    // If we just approved, let it through
-    if (approved) {
-      approved = false;
-      return;
-    }
+    if (approved) { approved = false; return; }
 
     if (processing) {
       e.preventDefault();
@@ -38,7 +100,6 @@
       return;
     }
 
-    // Find any editable element
     const el = document.activeElement;
     if (!el) return;
     if (!el.isContentEditable && el.tagName !== "TEXTAREA" && el.tagName !== "INPUT") return;
@@ -46,69 +107,76 @@
     const text = (el.innerText || el.value || "").trim();
     if (!text || text.length < 2) return;
 
-    // BLOCK the send
     e.preventDefault();
     e.stopImmediatePropagation();
 
     processing = true;
     badge.textContent = "🛡️ Checking...";
     badge.style.background = "#f59e0b";
+    console.log("[AI MOD] Checking (enter):", text);
 
-    console.log("[AI MOD] Checking:", text);
+    const data = await callModeration(text);
+    const hadCtrl = e.ctrlKey;
 
-    try {
-      const data = await new Promise((resolve) => {
-        chrome.runtime.sendMessage(
-          { type: "MODERATE_MESSAGE", payload: { message: text, grammar: GRAMMAR } },
-          (resp) => {
-            if (chrome.runtime.lastError) {
-              resolve({ approved: false, code: "ERR", reason: chrome.runtime.lastError.message });
-            } else {
-              resolve(resp || { approved: false, code: "ERR", reason: "No response" });
-            }
-          }
-        );
-      });
-
-      console.log("[AI MOD] Result:", data);
-
-      if (data.approved) {
-        // APPROVED — let it send
-        console.log("[AI MOD] ✅ Approved");
-        badge.textContent = "🛡️ ✅ Sent";
-        badge.style.background = "#22c55e";
-        processing = false;
-        approved = true;
-
-        // Re-fire Enter
-        el.dispatchEvent(new KeyboardEvent("keydown", {
-          key: "Enter", code: "Enter", keyCode: 13, which: 13,
-          bubbles: true, cancelable: true,
-        }));
-      } else {
-        // BLOCKED
-        console.log("[AI MOD] 🚫 Blocked:", data.code, data.reason);
-        processing = false;
-        showBlock(data.reason || "Message violates guidelines", data.code || "M400");
-      }
-    } catch (err) {
-      console.error("[AI MOD] API error:", err);
-      processing = false;
-      showBlock("Cannot reach moderation server. Is it running on port 8080?", "ERR");
-    }
-
-    setTimeout(() => {
-      badge.textContent = "🛡️ AI Mod ON";
-      badge.style.background = "#6366f1";
-    }, 3000);
+    handleResult(data, () => {
+      el.dispatchEvent(new KeyboardEvent("keydown", {
+        key: "Enter", code: "Enter", keyCode: 13, which: 13,
+        ctrlKey: hadCtrl, bubbles: true, cancelable: true,
+      }));
+    });
   }, true);
 
-  // ── Friendly info popup ─────────────────────────────────────
+  // ── INTERCEPT SEND / POST BUTTON ───────────────────────────
+  document.addEventListener("click", async (e) => {
+    if (approved) { approved = false; return; }
+
+    if (processing) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
+
+    const btn = e.target.closest("button, [role='button']");
+    if (!btn) return;
+
+    const btnLabel = (
+      (btn.getAttribute("aria-label") || "") +
+      (btn.getAttribute("title") || "") +
+      (btn.getAttribute("data-tid") || "") +
+      (btn.getAttribute("name") || "") +
+      (btn.innerText || "")
+    ).toLowerCase();
+
+    if (!btnLabel.includes("send") && !btnLabel.includes("post")) return;
+
+    // Find text from any editable element
+    let text = "";
+    for (const el of document.querySelectorAll('[contenteditable="true"], textarea')) {
+      const t = (el.innerText || el.value || "").trim();
+      if (t.length > text.length) text = t;
+    }
+    if (!text || text.length < 2) return;
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    processing = true;
+    badge.textContent = "🛡️ Checking...";
+    badge.style.background = "#f59e0b";
+    console.log("[AI MOD] Checking (post btn):", text);
+
+    const data = await callModeration(text);
+
+    handleResult(data, () => {
+      btn.click();
+    });
+  }, true);
+
+  // ── Friendly info popup ────────────────────────────────────
   function showBlock(reason, code) {
     badge.textContent = "🛡️ Not sent";
     badge.style.background = "#6366f1";
 
-    // Remove old overlay
     const old = document.getElementById("ai-mod-block");
     if (old) old.remove();
 
@@ -146,7 +214,7 @@
           💡 Please revise your message to match the group's study guidelines and try again.
         </div>
 
-        <button onclick="this.closest('#ai-mod-block').remove()"
+        <button id="ai-mod-dismiss-btn"
           style="width:100%;background:#6366f1;color:white;border:none;padding:10px;
           border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
           transition:background .2s;">
@@ -155,8 +223,13 @@
       </div>
     `;
     document.body.appendChild(overlay);
-
-    // Auto-dismiss after 8 seconds
+    document.getElementById("ai-mod-dismiss-btn").addEventListener("click", () => {
+      const el = document.getElementById("ai-mod-block");
+      if (el) el.remove();
+    });
+    overlay.addEventListener("click", (ev) => {
+      if (ev.target === overlay) overlay.remove();
+    });
     setTimeout(() => { const el = document.getElementById("ai-mod-block"); if (el) el.remove(); }, 8000);
   }
 })();
