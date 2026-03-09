@@ -103,10 +103,10 @@
     }, 3000);
   }, true);
 
-  // ── Block popup ────────────────────────────────────────────
+  // ── Friendly info popup ─────────────────────────────────────
   function showBlock(reason, code) {
-    badge.textContent = "🛡️ 🚫 Blocked";
-    badge.style.background = "#ef4444";
+    badge.textContent = "🛡️ Not sent";
+    badge.style.background = "#6366f1";
 
     // Remove old overlay
     const old = document.getElementById("ai-mod-block");
@@ -116,26 +116,47 @@
     overlay.id = "ai-mod-block";
     overlay.style.cssText =
       "position:fixed;top:0;left:0;right:0;bottom:0;z-index:999999998;" +
-      "background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;" +
-      "font-family:sans-serif;";
+      "background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;" +
+      "font-family:'Segoe UI',system-ui,sans-serif;animation:fadeIn .25s ease;";
     overlay.innerHTML = `
-      <div style="background:#1a1a2e;border:2px solid #ef4444;border-radius:16px;
-        padding:30px;max-width:420px;width:90%;color:white;text-align:center;
-        box-shadow:0 20px 60px rgba(0,0,0,.5);">
-        <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
-        <h2 style="margin:0 0 8px;color:#f87171;font-size:20px;">Message Blocked</h2>
-        <p style="margin:0 0 6px;color:#9ca3af;font-size:12px;">Code: ${code}</p>
-        <p style="margin:0 0 20px;color:#e5e7eb;font-size:14px;line-height:1.5;">${reason}</p>
-        <button onclick="this.parentElement.parentElement.remove()"
-          style="background:#ef4444;color:white;border:none;padding:10px 30px;
-          border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
-          OK, Got It
+      <style>
+        @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+        @keyframes slideUp { from { transform:translateY(20px);opacity:0 } to { transform:translateY(0);opacity:1 } }
+      </style>
+      <div style="background:#ffffff;border-radius:14px;padding:28px 32px;max-width:400px;width:90%;
+        text-align:left;box-shadow:0 12px 40px rgba(0,0,0,.15);animation:slideUp .3s ease;">
+
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:#eef2ff;display:flex;
+            align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">ℹ️</div>
+          <div>
+            <div style="font-size:15px;font-weight:600;color:#1e293b;">This message cannot be sent</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px;">SentinelAI Moderation</div>
+          </div>
+        </div>
+
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">
+            Reason · <span style="color:#6366f1;font-weight:600;">${code}</span>
+          </div>
+          <div style="font-size:13px;color:#334155;line-height:1.5;">${reason}</div>
+        </div>
+
+        <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:18px;">
+          💡 Please revise your message to match the group's study guidelines and try again.
+        </div>
+
+        <button onclick="this.closest('#ai-mod-block').remove()"
+          style="width:100%;background:#6366f1;color:white;border:none;padding:10px;
+          border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
+          transition:background .2s;">
+          Understood
         </button>
       </div>
     `;
     document.body.appendChild(overlay);
 
-    // Auto-dismiss after 6 seconds
-    setTimeout(() => overlay.remove(), 6000);
+    // Auto-dismiss after 8 seconds
+    setTimeout(() => { const el = document.getElementById("ai-mod-block"); if (el) el.remove(); }, 8000);
   }
 })();
