@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Chat Moderator</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <div class="popup-header">
+      <div class="popup-logo">
+        <span class="logo-icon">🛡️</span>
+        <div class="logo-text">
+          <h1>AI Moderator</h1>
+          <p class="subtitle">Real-time chat protection</p>
+        </div>
+      </div>
+      <div class="status-badge" id="status-badge">
+        <span class="status-dot"></span>
+        <span class="status-text">Active</span>
+      </div>
+    </div>
+
+    <!-- Toggle -->
+    <div class="toggle-section">
+      <span class="toggle-label">Moderation Engine</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-enabled" checked />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings-section">
+      <label class="input-label" for="api-url-input">API Endpoint</label>
+      <div class="input-group">
+        <input
+          type="url"
+          id="api-url-input"
+          placeholder="http://localhost:8080"
+          spellcheck="false"
+        />
+        <button class="btn-save" id="btn-save">Save</button>
+      </div>
+      <p class="input-hint" id="save-feedback"></p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-number" id="stat-total">0</span>
+        <span class="stat-label">Checked</span>
+      </div>
+      <div class="stat-card stat-blocked">
+        <span class="stat-number" id="stat-blocked">0</span>
+        <span class="stat-label">Blocked</span>
+      </div>
+      <div class="stat-card stat-approved">
+        <span class="stat-number" id="stat-approved">0</span>
+        <span class="stat-label">Approved</span>
+      </div>
+    </div>
+
+    <!-- Activity log -->
+    <div class="log-section">
+      <h2 class="log-title">Recent Activity</h2>
+      <div class="log-list" id="log-list">
+        <div class="log-empty">No moderation events yet.</div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="popup-footer">
+      <span>AI Chat Moderator v1.0</span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

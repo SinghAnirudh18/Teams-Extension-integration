@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "AI Chat Moderator",
+  "version": "1.0.0",
+  "description": "AI-powered moderation layer for chat platforms. Intercepts messages and validates them against community guidelines before sending.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://teams.microsoft.com/*",
+    "https://discord.com/*",
+    "https://web.telegram.org/*",
+    "https://app.slack.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://teams.microsoft.com/*",
+        "https://discord.com/*",
+        "https://web.telegram.org/*",
+        "https://app.slack.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AI Chat Moderator"
+  },
+  "icons": {}
+}
